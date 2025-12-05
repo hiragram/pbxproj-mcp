@@ -65,7 +65,8 @@ Add the following to `~/Library/Application Support/Claude/claude_desktop_config
 {
   "mcpServers": {
     "pbxproj": {
-      "command": "/path/to/pbxproj-mcp"
+      "command": "swx",
+      "args": ["hiragram/pbxproj-mcp"]
     }
   }
 }
