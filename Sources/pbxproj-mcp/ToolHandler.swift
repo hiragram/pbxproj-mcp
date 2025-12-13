@@ -593,6 +593,279 @@ final class ToolHandler: Sendable {
                 ]),
                 annotations: .init(destructiveHint: true)
             ),
+
+            // Scheme operations
+            Tool(
+                name: "create_scheme",
+                description: "Create a new scheme for a target",
+                inputSchema: .object([
+                    "type": .string("object"),
+                    "properties": .object([
+                        "project_path": .object([
+                            "type": .string("string"),
+                            "description": .string("Path to the .xcodeproj directory")
+                        ]),
+                        "scheme_name": .object([
+                            "type": .string("string"),
+                            "description": .string("Name of the new scheme")
+                        ]),
+                        "target_name": .object([
+                            "type": .string("string"),
+                            "description": .string("Name of the main target for the scheme")
+                        ]),
+                        "test_target_name": .object([
+                            "type": .string("string"),
+                            "description": .string("Optional: Name of the test target")
+                        ]),
+                        "build_configuration": .object([
+                            "type": .string("string"),
+                            "description": .string("Optional: Build configuration (default: Debug)")
+                        ]),
+                        "shared": .object([
+                            "type": .string("boolean"),
+                            "description": .string("Optional: Create as shared scheme (default: true)")
+                        ])
+                    ]),
+                    "required": .array([.string("project_path"), .string("scheme_name"), .string("target_name")])
+                ]),
+                annotations: .init(destructiveHint: true)
+            ),
+
+            Tool(
+                name: "update_scheme",
+                description: "Update an existing scheme's settings",
+                inputSchema: .object([
+                    "type": .string("object"),
+                    "properties": .object([
+                        "project_path": .object([
+                            "type": .string("string"),
+                            "description": .string("Path to the .xcodeproj directory")
+                        ]),
+                        "scheme_name": .object([
+                            "type": .string("string"),
+                            "description": .string("Name of the scheme to update")
+                        ]),
+                        "new_name": .object([
+                            "type": .string("string"),
+                            "description": .string("Optional: New name for the scheme")
+                        ]),
+                        "build_configuration": .object([
+                            "type": .string("string"),
+                            "description": .string("Optional: New build configuration")
+                        ]),
+                        "code_coverage_enabled": .object([
+                            "type": .string("boolean"),
+                            "description": .string("Optional: Enable or disable code coverage")
+                        ])
+                    ]),
+                    "required": .array([.string("project_path"), .string("scheme_name")])
+                ]),
+                annotations: .init(destructiveHint: true)
+            ),
+
+            Tool(
+                name: "delete_scheme",
+                description: "Delete a scheme from the project",
+                inputSchema: .object([
+                    "type": .string("object"),
+                    "properties": .object([
+                        "project_path": .object([
+                            "type": .string("string"),
+                            "description": .string("Path to the .xcodeproj directory")
+                        ]),
+                        "scheme_name": .object([
+                            "type": .string("string"),
+                            "description": .string("Name of the scheme to delete")
+                        ])
+                    ]),
+                    "required": .array([.string("project_path"), .string("scheme_name")])
+                ]),
+                annotations: .init(destructiveHint: true)
+            ),
+
+            Tool(
+                name: "add_scheme_pre_action",
+                description: "Add a pre-action script to a scheme action (build, test, launch, profile, archive)",
+                inputSchema: .object([
+                    "type": .string("object"),
+                    "properties": .object([
+                        "project_path": .object([
+                            "type": .string("string"),
+                            "description": .string("Path to the .xcodeproj directory")
+                        ]),
+                        "scheme_name": .object([
+                            "type": .string("string"),
+                            "description": .string("Name of the scheme")
+                        ]),
+                        "action_type": .object([
+                            "type": .string("string"),
+                            "description": .string("Action type: build, test, launch, profile, archive")
+                        ]),
+                        "script": .object([
+                            "type": .string("string"),
+                            "description": .string("Shell script content")
+                        ]),
+                        "title": .object([
+                            "type": .string("string"),
+                            "description": .string("Optional: Title for the action (default: Run Script)")
+                        ]),
+                        "shell_path": .object([
+                            "type": .string("string"),
+                            "description": .string("Optional: Shell path (default: /bin/sh)")
+                        ])
+                    ]),
+                    "required": .array([.string("project_path"), .string("scheme_name"), .string("action_type"), .string("script")])
+                ]),
+                annotations: .init(destructiveHint: true)
+            ),
+
+            Tool(
+                name: "add_scheme_post_action",
+                description: "Add a post-action script to a scheme action (build, test, launch, profile, archive)",
+                inputSchema: .object([
+                    "type": .string("object"),
+                    "properties": .object([
+                        "project_path": .object([
+                            "type": .string("string"),
+                            "description": .string("Path to the .xcodeproj directory")
+                        ]),
+                        "scheme_name": .object([
+                            "type": .string("string"),
+                            "description": .string("Name of the scheme")
+                        ]),
+                        "action_type": .object([
+                            "type": .string("string"),
+                            "description": .string("Action type: build, test, launch, profile, archive")
+                        ]),
+                        "script": .object([
+                            "type": .string("string"),
+                            "description": .string("Shell script content")
+                        ]),
+                        "title": .object([
+                            "type": .string("string"),
+                            "description": .string("Optional: Title for the action (default: Run Script)")
+                        ]),
+                        "shell_path": .object([
+                            "type": .string("string"),
+                            "description": .string("Optional: Shell path (default: /bin/sh)")
+                        ])
+                    ]),
+                    "required": .array([.string("project_path"), .string("scheme_name"), .string("action_type"), .string("script")])
+                ]),
+                annotations: .init(destructiveHint: true)
+            ),
+
+            Tool(
+                name: "set_scheme_environment_variables",
+                description: "Set environment variables for a scheme's launch or test action",
+                inputSchema: .object([
+                    "type": .string("object"),
+                    "properties": .object([
+                        "project_path": .object([
+                            "type": .string("string"),
+                            "description": .string("Path to the .xcodeproj directory")
+                        ]),
+                        "scheme_name": .object([
+                            "type": .string("string"),
+                            "description": .string("Name of the scheme")
+                        ]),
+                        "action_type": .object([
+                            "type": .string("string"),
+                            "description": .string("Action type: launch or test")
+                        ]),
+                        "variables": .object([
+                            "type": .string("array"),
+                            "description": .string("Array of environment variables: [{key: string, value: string, enabled: boolean}]")
+                        ])
+                    ]),
+                    "required": .array([.string("project_path"), .string("scheme_name"), .string("action_type"), .string("variables")])
+                ]),
+                annotations: .init(destructiveHint: true)
+            ),
+
+            Tool(
+                name: "set_scheme_command_line_arguments",
+                description: "Set command line arguments for a scheme's launch or test action",
+                inputSchema: .object([
+                    "type": .string("object"),
+                    "properties": .object([
+                        "project_path": .object([
+                            "type": .string("string"),
+                            "description": .string("Path to the .xcodeproj directory")
+                        ]),
+                        "scheme_name": .object([
+                            "type": .string("string"),
+                            "description": .string("Name of the scheme")
+                        ]),
+                        "action_type": .object([
+                            "type": .string("string"),
+                            "description": .string("Action type: launch or test")
+                        ]),
+                        "arguments": .object([
+                            "type": .string("array"),
+                            "description": .string("Array of arguments: [{name: string, enabled: boolean}]")
+                        ])
+                    ]),
+                    "required": .array([.string("project_path"), .string("scheme_name"), .string("action_type"), .string("arguments")])
+                ]),
+                annotations: .init(destructiveHint: true)
+            ),
+
+            Tool(
+                name: "set_scheme_test_coverage",
+                description: "Configure test coverage settings for a scheme",
+                inputSchema: .object([
+                    "type": .string("object"),
+                    "properties": .object([
+                        "project_path": .object([
+                            "type": .string("string"),
+                            "description": .string("Path to the .xcodeproj directory")
+                        ]),
+                        "scheme_name": .object([
+                            "type": .string("string"),
+                            "description": .string("Name of the scheme")
+                        ]),
+                        "enabled": .object([
+                            "type": .string("boolean"),
+                            "description": .string("Enable or disable code coverage")
+                        ]),
+                        "target_names": .object([
+                            "type": .string("array"),
+                            "description": .string("Optional: Array of target names to gather coverage for. If not specified, gathers for all targets.")
+                        ])
+                    ]),
+                    "required": .array([.string("project_path"), .string("scheme_name"), .string("enabled")])
+                ]),
+                annotations: .init(destructiveHint: true)
+            ),
+
+            Tool(
+                name: "add_scheme_testable",
+                description: "Add a test target to a scheme's test action",
+                inputSchema: .object([
+                    "type": .string("object"),
+                    "properties": .object([
+                        "project_path": .object([
+                            "type": .string("string"),
+                            "description": .string("Path to the .xcodeproj directory")
+                        ]),
+                        "scheme_name": .object([
+                            "type": .string("string"),
+                            "description": .string("Name of the scheme")
+                        ]),
+                        "test_target_name": .object([
+                            "type": .string("string"),
+                            "description": .string("Name of the test target to add")
+                        ]),
+                        "skipped": .object([
+                            "type": .string("boolean"),
+                            "description": .string("Optional: Whether the test target is skipped (default: false)")
+                        ])
+                    ]),
+                    "required": .array([.string("project_path"), .string("scheme_name"), .string("test_target_name")])
+                ]),
+                annotations: .init(destructiveHint: true)
+            ),
         ]
     }
 
@@ -823,6 +1096,158 @@ final class ToolHandler: Sendable {
                     folderPath: folderPath,
                     parentGroupPath: parentGroupPath,
                     targetName: targetName
+                )
+
+            // Scheme operations
+            case "create_scheme":
+                guard let schemeName = args["scheme_name"]?.stringValue,
+                      let targetName = args["target_name"]?.stringValue else {
+                    throw MCPError.invalidParams("Missing scheme_name or target_name argument")
+                }
+                let testTargetName = args["test_target_name"]?.stringValue
+                let buildConfiguration = args["build_configuration"]?.stringValue ?? "Debug"
+                let shared = args["shared"]?.boolValue ?? true
+                result = try await service.createScheme(
+                    projectPath: projectPath,
+                    schemeName: schemeName,
+                    targetName: targetName,
+                    testTargetName: testTargetName,
+                    buildConfiguration: buildConfiguration,
+                    shared: shared
+                )
+
+            case "update_scheme":
+                guard let schemeName = args["scheme_name"]?.stringValue else {
+                    throw MCPError.invalidParams("Missing scheme_name argument")
+                }
+                let newName = args["new_name"]?.stringValue
+                let buildConfiguration = args["build_configuration"]?.stringValue
+                let codeCoverageEnabled = args["code_coverage_enabled"]?.boolValue
+                result = try await service.updateScheme(
+                    projectPath: projectPath,
+                    schemeName: schemeName,
+                    newName: newName,
+                    buildConfiguration: buildConfiguration,
+                    codeCoverageEnabled: codeCoverageEnabled
+                )
+
+            case "delete_scheme":
+                guard let schemeName = args["scheme_name"]?.stringValue else {
+                    throw MCPError.invalidParams("Missing scheme_name argument")
+                }
+                result = try await service.deleteScheme(
+                    projectPath: projectPath,
+                    schemeName: schemeName
+                )
+
+            case "add_scheme_pre_action":
+                guard let schemeName = args["scheme_name"]?.stringValue,
+                      let actionType = args["action_type"]?.stringValue,
+                      let script = args["script"]?.stringValue else {
+                    throw MCPError.invalidParams("Missing required arguments")
+                }
+                let title = args["title"]?.stringValue ?? "Run Script"
+                let shellPath = args["shell_path"]?.stringValue ?? "/bin/sh"
+                result = try await service.addSchemePreAction(
+                    projectPath: projectPath,
+                    schemeName: schemeName,
+                    actionType: actionType,
+                    script: script,
+                    title: title,
+                    shellPath: shellPath
+                )
+
+            case "add_scheme_post_action":
+                guard let schemeName = args["scheme_name"]?.stringValue,
+                      let actionType = args["action_type"]?.stringValue,
+                      let script = args["script"]?.stringValue else {
+                    throw MCPError.invalidParams("Missing required arguments")
+                }
+                let title = args["title"]?.stringValue ?? "Run Script"
+                let shellPath = args["shell_path"]?.stringValue ?? "/bin/sh"
+                result = try await service.addSchemePostAction(
+                    projectPath: projectPath,
+                    schemeName: schemeName,
+                    actionType: actionType,
+                    script: script,
+                    title: title,
+                    shellPath: shellPath
+                )
+
+            case "set_scheme_environment_variables":
+                guard let schemeName = args["scheme_name"]?.stringValue,
+                      let actionType = args["action_type"]?.stringValue,
+                      let variables = args["variables"]?.arrayValue else {
+                    throw MCPError.invalidParams("Missing required arguments")
+                }
+                let varsDict = variables.compactMap { value -> [String: Any]? in
+                    guard case .object(let dict) = value else { return nil }
+                    var result: [String: Any] = [:]
+                    for (k, v) in dict {
+                        if let str = v.stringValue {
+                            result[k] = str
+                        } else if let boolVal = v.boolValue {
+                            result[k] = boolVal
+                        }
+                    }
+                    return result
+                }
+                result = try await service.setSchemeEnvironmentVariables(
+                    projectPath: projectPath,
+                    schemeName: schemeName,
+                    actionType: actionType,
+                    variables: varsDict
+                )
+
+            case "set_scheme_command_line_arguments":
+                guard let schemeName = args["scheme_name"]?.stringValue,
+                      let actionType = args["action_type"]?.stringValue,
+                      let arguments = args["arguments"]?.arrayValue else {
+                    throw MCPError.invalidParams("Missing required arguments")
+                }
+                let argsDict = arguments.compactMap { value -> [String: Any]? in
+                    guard case .object(let dict) = value else { return nil }
+                    var result: [String: Any] = [:]
+                    for (k, v) in dict {
+                        if let str = v.stringValue {
+                            result[k] = str
+                        } else if let boolVal = v.boolValue {
+                            result[k] = boolVal
+                        }
+                    }
+                    return result
+                }
+                result = try await service.setSchemeCommandLineArguments(
+                    projectPath: projectPath,
+                    schemeName: schemeName,
+                    actionType: actionType,
+                    arguments: argsDict
+                )
+
+            case "set_scheme_test_coverage":
+                guard let schemeName = args["scheme_name"]?.stringValue,
+                      let enabled = args["enabled"]?.boolValue else {
+                    throw MCPError.invalidParams("Missing required arguments")
+                }
+                let targetNames = args["target_names"]?.arrayValue?.compactMap { $0.stringValue }
+                result = try await service.setSchemeTestCoverage(
+                    projectPath: projectPath,
+                    schemeName: schemeName,
+                    enabled: enabled,
+                    targetNames: targetNames
+                )
+
+            case "add_scheme_testable":
+                guard let schemeName = args["scheme_name"]?.stringValue,
+                      let testTargetName = args["test_target_name"]?.stringValue else {
+                    throw MCPError.invalidParams("Missing required arguments")
+                }
+                let skipped = args["skipped"]?.boolValue ?? false
+                result = try await service.addSchemeTestable(
+                    projectPath: projectPath,
+                    schemeName: schemeName,
+                    testTargetName: testTargetName,
+                    skipped: skipped
                 )
 
             default:
