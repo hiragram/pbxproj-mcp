@@ -218,7 +218,7 @@ final class ToolHandler: Sendable {
 
             Tool(
                 name: "add_file",
-                description: "Add a file to the project",
+                description: "Add a file to the project. Directories cannot be added - only individual files are supported. Note: Xcode 16+ uses Folder References by default, so files are automatically included without explicit addition.",
                 inputSchema: .object([
                     "type": .string("object"),
                     "properties": .object([
@@ -386,7 +386,7 @@ final class ToolHandler: Sendable {
 
             Tool(
                 name: "add_group",
-                description: "Add a new group to the project",
+                description: "Add a new group to the project. Note: Xcode 16+ uses Folder References by default, so files and folders are automatically included without explicit addition.",
                 inputSchema: .object([
                     "type": .string("object"),
                     "properties": .object([
@@ -564,6 +564,34 @@ final class ToolHandler: Sendable {
                     ]),
                     "required": .array([.string("project_path"), .string("scheme_name")])
                 ])
+            ),
+
+            Tool(
+                name: "add_folder_reference",
+                description: "Add a folder as a Folder Reference (PBXFileSystemSynchronizedRootGroup) to the project. This is the recommended way to add folders in Xcode 16+. Files inside the folder are automatically synchronized with the file system.",
+                inputSchema: .object([
+                    "type": .string("object"),
+                    "properties": .object([
+                        "project_path": .object([
+                            "type": .string("string"),
+                            "description": .string("Path to the .xcodeproj directory")
+                        ]),
+                        "folder_path": .object([
+                            "type": .string("string"),
+                            "description": .string("Path to the folder to add as a folder reference")
+                        ]),
+                        "parent_group_path": .object([
+                            "type": .string("string"),
+                            "description": .string("Optional: Path to the parent group (e.g., 'Sources/Models')")
+                        ]),
+                        "target_name": .object([
+                            "type": .string("string"),
+                            "description": .string("Optional: Target to add the folder reference to (files will be compiled/included automatically)")
+                        ])
+                    ]),
+                    "required": .array([.string("project_path"), .string("folder_path")])
+                ]),
+                annotations: .init(destructiveHint: true)
             ),
         ]
     }
@@ -783,6 +811,19 @@ final class ToolHandler: Sendable {
                     throw MCPError.invalidParams("Missing scheme_name argument")
                 }
                 result = try await service.getSchemeInfo(projectPath: projectPath, schemeName: schemeName)
+
+            case "add_folder_reference":
+                guard let folderPath = args["folder_path"]?.stringValue else {
+                    throw MCPError.invalidParams("Missing folder_path argument")
+                }
+                let parentGroupPath = args["parent_group_path"]?.stringValue
+                let targetName = args["target_name"]?.stringValue
+                result = try await service.addFolderReference(
+                    projectPath: projectPath,
+                    folderPath: folderPath,
+                    parentGroupPath: parentGroupPath,
+                    targetName: targetName
+                )
 
             default:
                 throw MCPError.methodNotFound("Unknown tool: \(params.name)")

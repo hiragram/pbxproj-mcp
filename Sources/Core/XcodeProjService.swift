@@ -489,9 +489,33 @@ public actor XcodeProjService {
         let projPath = Path(projectPath)
         let xcodeproj = try XcodeProj(path: projPath)
         let pbxproj = xcodeproj.pbxproj
+        let sourceRoot = projPath.parent()
+
+        // Check if path is a directory
+        let fileManager = FileManager.default
+        var isDirectory: ObjCBool = false
+        if fileManager.fileExists(atPath: filePath, isDirectory: &isDirectory), isDirectory.boolValue {
+            throw XcodeProjServiceError.pathIsDirectory(filePath)
+        }
 
         guard let rootGroup = try pbxproj.rootGroup() else {
             throw XcodeProjServiceError.projectNotFound
+        }
+
+        // Check if file is already covered by a folder reference
+        let file = Path(filePath)
+        let fileAbsolutePath = file.isAbsolute ? file : sourceRoot + file
+        let syncGroups = findSynchronizedRootGroups(in: rootGroup)
+        for syncGroup in syncGroups {
+            if let syncPath = syncGroup.path {
+                let syncAbsolutePath = sourceRoot + Path(syncPath)
+                if fileAbsolutePath.string.hasPrefix(syncAbsolutePath.string + "/") {
+                    throw XcodeProjServiceError.fileAlreadyCoveredByFolderReference(
+                        filePath: filePath,
+                        folderReference: syncPath
+                    )
+                }
+            }
         }
 
         // Find or create target group
@@ -509,8 +533,6 @@ public actor XcodeProjService {
         }
 
         // Add file to group
-        let file = Path(filePath)
-        let sourceRoot = projPath.parent()
         let fileRef = try targetGroup.addFile(
             at: file,
             sourceTree: .group,
@@ -1266,7 +1288,108 @@ public actor XcodeProjService {
         return formatAsJSON(info)
     }
 
+    /// フォルダをFolder Reference（PBXFileSystemSynchronizedRootGroup）として追加
+    public func addFolderReference(
+        projectPath: String,
+        folderPath: String,
+        parentGroupPath: String?,
+        targetName: String?
+    ) throws -> String {
+        let projPath = Path(projectPath)
+        let xcodeproj = try XcodeProj(path: projPath)
+        let pbxproj = xcodeproj.pbxproj
+        let sourceRoot = projPath.parent()
+
+        // Check if path is a directory
+        let fileManager = FileManager.default
+        var isDirectory: ObjCBool = false
+        guard fileManager.fileExists(atPath: folderPath, isDirectory: &isDirectory), isDirectory.boolValue else {
+            throw XcodeProjServiceError.pathIsNotDirectory(folderPath)
+        }
+
+        guard let rootGroup = try pbxproj.rootGroup() else {
+            throw XcodeProjServiceError.projectNotFound
+        }
+
+        // Find parent group
+        var parentGroup: PBXGroup = rootGroup
+        if let parentGroupPath = parentGroupPath {
+            let pathComponents = parentGroupPath.split(separator: "/").map(String.init)
+            for component in pathComponents {
+                if let existingGroup = parentGroup.group(named: component) {
+                    parentGroup = existingGroup
+                } else {
+                    throw XcodeProjServiceError.groupNotFound(parentGroupPath)
+                }
+            }
+        }
+
+        // Calculate relative path from source root
+        let folder = Path(folderPath)
+        let folderAbsolutePath = folder.isAbsolute ? folder : sourceRoot + folder
+        let relativePath: String
+        if folderAbsolutePath.string.hasPrefix(sourceRoot.string) {
+            relativePath = String(folderAbsolutePath.string.dropFirst(sourceRoot.string.count + 1))
+        } else {
+            relativePath = folderPath
+        }
+
+        // Check if folder reference already exists
+        let existingSyncGroups = findSynchronizedRootGroups(in: rootGroup)
+        for syncGroup in existingSyncGroups {
+            if syncGroup.path == relativePath {
+                throw XcodeProjServiceError.folderReferenceAlreadyExists(relativePath)
+            }
+        }
+
+        // Create PBXFileSystemSynchronizedRootGroup
+        let folderName = folderAbsolutePath.lastComponent
+        let syncRootGroup = PBXFileSystemSynchronizedRootGroup(
+            sourceTree: .group,
+            path: relativePath,
+            name: folderName
+        )
+        pbxproj.add(object: syncRootGroup)
+        parentGroup.children.append(syncRootGroup)
+
+        // Add to target if specified
+        if let targetName = targetName {
+            guard let target = pbxproj.targets(named: targetName).first as? PBXNativeTarget else {
+                throw XcodeProjServiceError.targetNotFound(targetName)
+            }
+
+            // Add to fileSystemSynchronizedGroups
+            if target.fileSystemSynchronizedGroups == nil {
+                target.fileSystemSynchronizedGroups = []
+            }
+            target.fileSystemSynchronizedGroups?.append(syncRootGroup)
+        }
+
+        try xcodeproj.write(path: projPath)
+
+        return formatAsJSON([
+            "success": true,
+            "folderReference": relativePath,
+            "name": folderName,
+            "parentGroup": parentGroupPath ?? "root",
+            "addedToTarget": targetName as Any
+        ])
+    }
+
     // MARK: - Helpers
+
+    /// Recursively finds all PBXFileSystemSynchronizedRootGroup elements in the project
+    private func findSynchronizedRootGroups(in group: PBXGroup) -> [PBXFileSystemSynchronizedRootGroup] {
+        var result: [PBXFileSystemSynchronizedRootGroup] = []
+        for child in group.children {
+            if let syncGroup = child as? PBXFileSystemSynchronizedRootGroup {
+                result.append(syncGroup)
+            } else if let subGroup = child as? PBXGroup {
+                result.append(contentsOf: findSynchronizedRootGroups(in: subGroup))
+            }
+        }
+        return result
+    }
 
     private func formatAsJSON(_ dict: [String: Any]) -> String {
         do {
@@ -1303,6 +1426,10 @@ public enum XcodeProjServiceError: Error, LocalizedError {
     case groupNotFound(String)
     case configurationNotFound(String)
     case fileNotFound(String)
+    case pathIsDirectory(String)
+    case pathIsNotDirectory(String)
+    case fileAlreadyCoveredByFolderReference(filePath: String, folderReference: String)
+    case folderReferenceAlreadyExists(String)
 
     public var errorDescription: String? {
         switch self {
@@ -1316,6 +1443,14 @@ public enum XcodeProjServiceError: Error, LocalizedError {
             return "Configuration not found: \(msg)"
         case .fileNotFound(let path):
             return "File not found: \(path)"
+        case .pathIsDirectory(let path):
+            return "Path is a directory, not a file: \(path). Use add_folder_reference to add directories."
+        case .pathIsNotDirectory(let path):
+            return "Path is not a directory: \(path). Use add_file to add files."
+        case .fileAlreadyCoveredByFolderReference(let filePath, let folderReference):
+            return "File '\(filePath)' is already covered by folder reference '\(folderReference)'"
+        case .folderReferenceAlreadyExists(let path):
+            return "Folder reference already exists: \(path)"
         }
     }
 }
