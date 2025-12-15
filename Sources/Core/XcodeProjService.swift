@@ -1223,11 +1223,11 @@ public actor XcodeProjService {
         )
         pbxproj.add(object: pluginDep)
 
-        // Add to target's packageProductDependencies
-        if target.packageProductDependencies == nil {
-            target.packageProductDependencies = []
-        }
-        target.packageProductDependencies?.append(pluginDep)
+        // Create target dependency with the plugin product
+        // This adds the plugin to "Run Build Tool Plug-ins" instead of "Frameworks and Libraries"
+        let targetDependency = PBXTargetDependency(product: pluginDep)
+        pbxproj.add(object: targetDependency)
+        target.dependencies.append(targetDependency)
 
         try xcodeproj.write(path: path)
 
@@ -1278,11 +1278,11 @@ public actor XcodeProjService {
         )
         pbxproj.add(object: pluginDep)
 
-        // Add to target's packageProductDependencies
-        if target.packageProductDependencies == nil {
-            target.packageProductDependencies = []
-        }
-        target.packageProductDependencies?.append(pluginDep)
+        // Create target dependency with the plugin product
+        // This adds the plugin to "Run Build Tool Plug-ins" instead of "Frameworks and Libraries"
+        let targetDependency = PBXTargetDependency(product: pluginDep)
+        pbxproj.add(object: targetDependency)
+        target.dependencies.append(targetDependency)
 
         try xcodeproj.write(path: projPath)
 
