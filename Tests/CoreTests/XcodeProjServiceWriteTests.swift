@@ -742,4 +742,207 @@ final class XcodeProjServiceWriteTests: XCTestCase {
             }
         }
     }
+
+    // MARK: - addBuildToolPlugin Tests
+
+    func testAddBuildToolPlugin() async throws {
+        let result = try await service.addBuildToolPlugin(
+            projectPath: tempProjectPath,
+            repositoryURL: "https://github.com/realm/SwiftLint.git",
+            pluginName: "SwiftLintBuildToolPlugin",
+            targetName: "TestApp",
+            version: "0.54.0",
+            versionRule: "upToNextMajor"
+        )
+
+        let data = result.data(using: .utf8)!
+        let json = try JSONSerialization.jsonObject(with: data) as! [String: Any]
+
+        XCTAssertEqual(json["success"] as? Bool, true)
+        XCTAssertEqual(json["package"] as? String, "https://github.com/realm/SwiftLint.git")
+        XCTAssertEqual(json["plugin"] as? String, "SwiftLintBuildToolPlugin")
+        XCTAssertEqual(json["addedToTarget"] as? String, "TestApp")
+        XCTAssertEqual(json["version"] as? String, "0.54.0")
+        XCTAssertEqual(json["versionRule"] as? String, "upToNextMajor")
+
+        // Verify package was added to project
+        let packagesResult = try await service.listPackages(projectPath: tempProjectPath)
+        let packagesData = packagesResult.data(using: .utf8)!
+        let packagesJson = try JSONSerialization.jsonObject(with: packagesData) as! [String: Any]
+
+        let packages = packagesJson["packages"] as? [[String: Any]] ?? []
+        let swiftLintPackage = packages.first { ($0["repositoryURL"] as? String)?.contains("SwiftLint") == true }
+
+        XCTAssertNotNil(swiftLintPackage)
+        XCTAssertEqual(swiftLintPackage?["type"] as? String, "remote")
+    }
+
+    func testAddBuildToolPluginWithExistingPackage() async throws {
+        // First add a regular dependency from the same package
+        _ = try await service.addSwiftPackage(
+            projectPath: tempProjectPath,
+            repositoryURL: "https://github.com/example/multi-product-package.git",
+            productName: "RegularLibrary",
+            targetName: "TestApp",
+            version: "1.0.0",
+            versionRule: "upToNextMajor"
+        )
+
+        // Now add a plugin from the same package
+        let result = try await service.addBuildToolPlugin(
+            projectPath: tempProjectPath,
+            repositoryURL: "https://github.com/example/multi-product-package.git",
+            pluginName: "BuildPlugin",
+            targetName: "TestApp",
+            version: "1.0.0",
+            versionRule: "upToNextMajor"
+        )
+
+        let data = result.data(using: .utf8)!
+        let json = try JSONSerialization.jsonObject(with: data) as! [String: Any]
+
+        XCTAssertEqual(json["success"] as? Bool, true)
+
+        // Verify only one package reference exists (reused existing)
+        let packagesResult = try await service.listPackages(projectPath: tempProjectPath)
+        let packagesData = packagesResult.data(using: .utf8)!
+        let packagesJson = try JSONSerialization.jsonObject(with: packagesData) as! [String: Any]
+
+        let packages = packagesJson["packages"] as? [[String: Any]] ?? []
+        let matchingPackages = packages.filter { ($0["repositoryURL"] as? String)?.contains("multi-product-package") == true }
+
+        XCTAssertEqual(matchingPackages.count, 1, "Should reuse existing package reference")
+    }
+
+    func testAddBuildToolPluginWithDifferentVersionRules() async throws {
+        // Test exact version
+        let exactResult = try await service.addBuildToolPlugin(
+            projectPath: tempProjectPath,
+            repositoryURL: "https://github.com/example/exact-plugin.git",
+            pluginName: "ExactPlugin",
+            targetName: "TestApp",
+            version: "2.0.0",
+            versionRule: "exact"
+        )
+
+        let exactData = exactResult.data(using: .utf8)!
+        let exactJson = try JSONSerialization.jsonObject(with: exactData) as! [String: Any]
+        XCTAssertEqual(exactJson["success"] as? Bool, true)
+        XCTAssertEqual(exactJson["versionRule"] as? String, "exact")
+
+        // Test branch
+        let branchResult = try await service.addBuildToolPlugin(
+            projectPath: tempProjectPath,
+            repositoryURL: "https://github.com/example/branch-plugin.git",
+            pluginName: "BranchPlugin",
+            targetName: "TestApp",
+            version: "main",
+            versionRule: "branch"
+        )
+
+        let branchData = branchResult.data(using: .utf8)!
+        let branchJson = try JSONSerialization.jsonObject(with: branchData) as! [String: Any]
+        XCTAssertEqual(branchJson["success"] as? Bool, true)
+        XCTAssertEqual(branchJson["versionRule"] as? String, "branch")
+    }
+
+    func testAddBuildToolPluginTargetNotFound() async throws {
+        do {
+            _ = try await service.addBuildToolPlugin(
+                projectPath: tempProjectPath,
+                repositoryURL: "https://github.com/example/plugin.git",
+                pluginName: "Plugin",
+                targetName: "NonExistentTarget",
+                version: "1.0.0",
+                versionRule: "upToNextMajor"
+            )
+            XCTFail("Should throw error")
+        } catch let error as XcodeProjServiceError {
+            if case .targetNotFound(let name) = error {
+                XCTAssertEqual(name, "NonExistentTarget")
+            } else {
+                XCTFail("Wrong error type: \(error)")
+            }
+        }
+    }
+
+    // MARK: - addLocalBuildToolPlugin Tests
+
+    func testAddLocalBuildToolPlugin() async throws {
+        let result = try await service.addLocalBuildToolPlugin(
+            projectPath: tempProjectPath,
+            packagePath: "../LocalBuildTools",
+            pluginName: "LocalLintPlugin",
+            targetName: "TestApp"
+        )
+
+        let data = result.data(using: .utf8)!
+        let json = try JSONSerialization.jsonObject(with: data) as! [String: Any]
+
+        XCTAssertEqual(json["success"] as? Bool, true)
+        XCTAssertEqual(json["packagePath"] as? String, "../LocalBuildTools")
+        XCTAssertEqual(json["plugin"] as? String, "LocalLintPlugin")
+        XCTAssertEqual(json["addedToTarget"] as? String, "TestApp")
+
+        // Verify local package was added
+        let packagesResult = try await service.listPackages(projectPath: tempProjectPath)
+        let packagesData = packagesResult.data(using: .utf8)!
+        let packagesJson = try JSONSerialization.jsonObject(with: packagesData) as! [String: Any]
+
+        let packages = packagesJson["packages"] as? [[String: Any]] ?? []
+        let localPackage = packages.first { ($0["type"] as? String) == "local" && ($0["relativePath"] as? String) == "../LocalBuildTools" }
+
+        XCTAssertNotNil(localPackage)
+    }
+
+    func testAddLocalBuildToolPluginWithExistingPackage() async throws {
+        // First add a regular local package dependency
+        _ = try await service.addLocalPackage(
+            projectPath: tempProjectPath,
+            packagePath: "../SharedLocalPackage",
+            productName: "SharedLib",
+            targetName: "TestApp"
+        )
+
+        // Now add a plugin from the same local package
+        let result = try await service.addLocalBuildToolPlugin(
+            projectPath: tempProjectPath,
+            packagePath: "../SharedLocalPackage",
+            pluginName: "SharedPlugin",
+            targetName: "TestApp"
+        )
+
+        let data = result.data(using: .utf8)!
+        let json = try JSONSerialization.jsonObject(with: data) as! [String: Any]
+
+        XCTAssertEqual(json["success"] as? Bool, true)
+
+        // Verify only one local package reference exists
+        let packagesResult = try await service.listPackages(projectPath: tempProjectPath)
+        let packagesData = packagesResult.data(using: .utf8)!
+        let packagesJson = try JSONSerialization.jsonObject(with: packagesData) as! [String: Any]
+
+        let packages = packagesJson["packages"] as? [[String: Any]] ?? []
+        let matchingPackages = packages.filter { ($0["relativePath"] as? String) == "../SharedLocalPackage" }
+
+        XCTAssertEqual(matchingPackages.count, 1, "Should reuse existing local package reference")
+    }
+
+    func testAddLocalBuildToolPluginTargetNotFound() async throws {
+        do {
+            _ = try await service.addLocalBuildToolPlugin(
+                projectPath: tempProjectPath,
+                packagePath: "../LocalPlugin",
+                pluginName: "Plugin",
+                targetName: "NonExistentTarget"
+            )
+            XCTFail("Should throw error")
+        } catch let error as XcodeProjServiceError {
+            if case .targetNotFound(let name) = error {
+                XCTAssertEqual(name, "NonExistentTarget")
+            } else {
+                XCTFail("Wrong error type: \(error)")
+            }
+        }
+    }
 }

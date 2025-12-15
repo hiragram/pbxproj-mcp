@@ -866,6 +866,71 @@ final class ToolHandler: Sendable {
                 ]),
                 annotations: .init(destructiveHint: true)
             ),
+
+            // Build Tool Plugins
+            Tool(
+                name: "add_build_tool_plugin",
+                description: "Add a Swift Package Build Tool Plugin to a target (e.g., SwiftLint, SwiftFormat). The plugin will run during the build phase.",
+                inputSchema: .object([
+                    "type": .string("object"),
+                    "properties": .object([
+                        "project_path": .object([
+                            "type": .string("string"),
+                            "description": .string("Path to the .xcodeproj directory")
+                        ]),
+                        "repository_url": .object([
+                            "type": .string("string"),
+                            "description": .string("Git repository URL of the package containing the plugin")
+                        ]),
+                        "plugin_name": .object([
+                            "type": .string("string"),
+                            "description": .string("Name of the plugin product to use (e.g., 'SwiftLintBuildToolPlugin')")
+                        ]),
+                        "target_name": .object([
+                            "type": .string("string"),
+                            "description": .string("Target to add the plugin to")
+                        ]),
+                        "version": .object([
+                            "type": .string("string"),
+                            "description": .string("Minimum version (e.g., '0.54.0')")
+                        ]),
+                        "version_rule": .object([
+                            "type": .string("string"),
+                            "description": .string("Version rule: 'upToNextMajor', 'upToNextMinor', 'exact', 'branch', 'revision' (default: upToNextMajor)")
+                        ])
+                    ]),
+                    "required": .array([.string("project_path"), .string("repository_url"), .string("plugin_name"), .string("target_name"), .string("version")])
+                ]),
+                annotations: .init(destructiveHint: true)
+            ),
+
+            Tool(
+                name: "add_local_build_tool_plugin",
+                description: "Add a Build Tool Plugin from a local Swift Package to a target",
+                inputSchema: .object([
+                    "type": .string("object"),
+                    "properties": .object([
+                        "project_path": .object([
+                            "type": .string("string"),
+                            "description": .string("Path to the .xcodeproj directory")
+                        ]),
+                        "package_path": .object([
+                            "type": .string("string"),
+                            "description": .string("Relative path to the local package directory containing the plugin")
+                        ]),
+                        "plugin_name": .object([
+                            "type": .string("string"),
+                            "description": .string("Name of the plugin product to use")
+                        ]),
+                        "target_name": .object([
+                            "type": .string("string"),
+                            "description": .string("Target to add the plugin to")
+                        ])
+                    ]),
+                    "required": .array([.string("project_path"), .string("package_path"), .string("plugin_name"), .string("target_name")])
+                ]),
+                annotations: .init(destructiveHint: true)
+            ),
         ]
     }
 
@@ -1248,6 +1313,37 @@ final class ToolHandler: Sendable {
                     schemeName: schemeName,
                     testTargetName: testTargetName,
                     skipped: skipped
+                )
+
+            // Build Tool Plugin operations
+            case "add_build_tool_plugin":
+                guard let repoURL = args["repository_url"]?.stringValue,
+                      let pluginName = args["plugin_name"]?.stringValue,
+                      let targetName = args["target_name"]?.stringValue,
+                      let version = args["version"]?.stringValue else {
+                    throw MCPError.invalidParams("Missing required arguments")
+                }
+                let versionRule = args["version_rule"]?.stringValue ?? "upToNextMajor"
+                result = try await service.addBuildToolPlugin(
+                    projectPath: projectPath,
+                    repositoryURL: repoURL,
+                    pluginName: pluginName,
+                    targetName: targetName,
+                    version: version,
+                    versionRule: versionRule
+                )
+
+            case "add_local_build_tool_plugin":
+                guard let packagePath = args["package_path"]?.stringValue,
+                      let pluginName = args["plugin_name"]?.stringValue,
+                      let targetName = args["target_name"]?.stringValue else {
+                    throw MCPError.invalidParams("Missing required arguments")
+                }
+                result = try await service.addLocalBuildToolPlugin(
+                    projectPath: projectPath,
+                    packagePath: packagePath,
+                    pluginName: pluginName,
+                    targetName: targetName
                 )
 
             default:

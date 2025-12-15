@@ -1166,6 +1166,134 @@ public actor XcodeProjService {
         ])
     }
 
+    /// Build Tool Pluginを追加（リモートパッケージから）
+    public func addBuildToolPlugin(
+        projectPath: String,
+        repositoryURL: String,
+        pluginName: String,
+        targetName: String,
+        version: String,
+        versionRule: String
+    ) throws -> String {
+        let path = Path(projectPath)
+        let xcodeproj = try XcodeProj(path: path)
+        let pbxproj = xcodeproj.pbxproj
+
+        guard let project = try pbxproj.rootProject() else {
+            throw XcodeProjServiceError.projectNotFound
+        }
+
+        guard let target = pbxproj.targets(named: targetName).first else {
+            throw XcodeProjServiceError.targetNotFound(targetName)
+        }
+
+        // Check if package already exists
+        var packageRef = project.remotePackages.first { $0.repositoryURL == repositoryURL }
+
+        if packageRef == nil {
+            // Create version requirement
+            let versionRequirement: XCRemoteSwiftPackageReference.VersionRequirement
+            switch versionRule.lowercased() {
+            case "uptonextmajor":
+                versionRequirement = .upToNextMajorVersion(version)
+            case "uptonextminor":
+                versionRequirement = .upToNextMinorVersion(version)
+            case "exact":
+                versionRequirement = .exact(version)
+            case "branch":
+                versionRequirement = .branch(version)
+            case "revision":
+                versionRequirement = .revision(version)
+            default:
+                versionRequirement = .upToNextMajorVersion(version)
+            }
+
+            // Create new package reference
+            let newPackageRef = XCRemoteSwiftPackageReference(repositoryURL: repositoryURL, versionRequirement: versionRequirement)
+            pbxproj.add(object: newPackageRef)
+            project.remotePackages.append(newPackageRef)
+            packageRef = newPackageRef
+        }
+
+        // Create plugin dependency (isPlugin: true)
+        let pluginDep = XCSwiftPackageProductDependency(
+            productName: pluginName,
+            package: packageRef,
+            isPlugin: true
+        )
+        pbxproj.add(object: pluginDep)
+
+        // Add to target's packageProductDependencies
+        if target.packageProductDependencies == nil {
+            target.packageProductDependencies = []
+        }
+        target.packageProductDependencies?.append(pluginDep)
+
+        try xcodeproj.write(path: path)
+
+        return formatAsJSON([
+            "success": true,
+            "package": repositoryURL,
+            "plugin": pluginName,
+            "addedToTarget": targetName,
+            "version": version,
+            "versionRule": versionRule
+        ])
+    }
+
+    /// Build Tool Pluginを追加（ローカルパッケージから）
+    public func addLocalBuildToolPlugin(
+        projectPath: String,
+        packagePath: String,
+        pluginName: String,
+        targetName: String
+    ) throws -> String {
+        let projPath = Path(projectPath)
+        let xcodeproj = try XcodeProj(path: projPath)
+        let pbxproj = xcodeproj.pbxproj
+
+        guard let project = try pbxproj.rootProject() else {
+            throw XcodeProjServiceError.projectNotFound
+        }
+
+        guard let target = pbxproj.targets(named: targetName).first else {
+            throw XcodeProjServiceError.targetNotFound(targetName)
+        }
+
+        // Check if local package already exists
+        var localPackageRef = project.localPackages.first { $0.relativePath == packagePath }
+
+        if localPackageRef == nil {
+            // Create local package reference
+            let newLocalPackageRef = XCLocalSwiftPackageReference(relativePath: packagePath)
+            pbxproj.add(object: newLocalPackageRef)
+            project.localPackages.append(newLocalPackageRef)
+            localPackageRef = newLocalPackageRef
+        }
+
+        // Create plugin dependency (isPlugin: true)
+        let pluginDep = XCSwiftPackageProductDependency(
+            productName: pluginName,
+            isPlugin: true
+        )
+        pbxproj.add(object: pluginDep)
+
+        // Add to target's packageProductDependencies
+        if target.packageProductDependencies == nil {
+            target.packageProductDependencies = []
+        }
+        target.packageProductDependencies?.append(pluginDep)
+
+        try xcodeproj.write(path: projPath)
+
+        return formatAsJSON([
+            "success": true,
+            "packagePath": packagePath,
+            "plugin": pluginName,
+            "addedToTarget": targetName
+        ])
+    }
+
     /// スキーム詳細情報を取得
     public func getSchemeInfo(projectPath: String, schemeName: String) throws -> String {
         let path = Path(projectPath)
